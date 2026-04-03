@@ -1,0 +1,132 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 2 (The Performance Pro) & Archetype 4 (Swiss & High-Contrast) hybrid",
+  "domain": "Finance / Trading / Analytics",
+  "mood": "Professional, precise, high-performance, analytical, tactical minimalism",
+  "colors": {
+    "background": {
+      "default": "#000000",
+      "card": "#0A0A0A",
+      "surface": "#141414",
+      "surface_hover": "#1C1C1C"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A0A0A0",
+      "muted": "#666666"
+    },
+    "brand": {
+      "primary": "#007AFF",
+      "primary_hover": "#005BB5"
+    },
+    "status": {
+      "profit": "#00C805",
+      "profit_bg": "rgba(0, 200, 5, 0.1)",
+      "loss": "#FF3B30",
+      "loss_bg": "rgba(255, 59, 48, 0.1)",
+      "warning": "#FFCC00"
+    },
+    "border": {
+      "default": "rgba(255, 255, 255, 0.1)",
+      "focus": "#007AFF"
+    }
+  },
+  "typography": {
+    "heading_font": "Work Sans",
+    "body_font": "IBM Plex Sans",
+    "mono_font": "JetBrains Mono",
+    "scale": {
+      "h1": "text-4xl font-semibold tracking-tight",
+      "h2": "text-2xl font-medium tracking-tight",
+      "h3": "text-xl font-medium",
+      "h4": "text-lg font-medium",
+      "body": "text-sm",
+      "data_large": "text-3xl font-mono font-medium tracking-tight",
+      "data_medium": "text-xl font-mono font-medium",
+      "data_small": "text-sm font-mono",
+      "label": "text-xs font-semibold uppercase tracking-[0.1em] text-gray-500"
+    }
+  },
+  "layout_and_spacing": {
+    "strategy": "MODE B: THE CONTROL ROOM GRID",
+    "base_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 lg:grid-cols-12",
+    "gap": "gap-4 md:gap-6",
+    "padding": {
+      "container": "p-4 md:p-6 lg:p-8",
+      "card": "p-5"
+    },
+    "radius": {
+      "card": "rounded-none md:rounded-sm",
+      "button": "rounded-sm",
+      "input": "rounded-sm"
+    }
+  },
+  "surfaces_and_effects": {
+    "card_style": "Flat dark backgrounds (bg-[#0A0A0A]) with stark 1px solid borders (border-white/10). No soft shadows. 'Technical / Terminal' feel.",
+    "hover_state": "Slight brightness increase (bg-[#1C1C1C]), no vertical lift. Maintain geometric rigidity.",
+    "glassmorphism": "Not recommended for trading dashboards to avoid refraction of data. Stick to solid, opaque backgrounds for maximum contrast and legibility.",
+    "borders": "Expose the grid. Use border-collapse patterns where applicable. Inner borders between table columns/rows should be border-white/5."
+  },
+  "components": {
+    "navigation": {
+      "style": "Vertical sidebar or compact top nav. High contrast active states with a sharp left border (border-l-2 border-blue-500).",
+      "items": ["Dashboard", "Watchlist", "Position Sizer", "Trade Log", "Analytics"]
+    },
+    "buttons": {
+      "primary": "bg-blue-600 text-white hover:bg-blue-700 rounded-sm px-4 py-2 font-medium transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none",
+      "secondary": "bg-transparent border border-white/20 text-white hover:bg-white/5 rounded-sm px-4 py-2 font-medium transition-colors",
+      "profit": "bg-green-600 hover:bg-green-700 text-white rounded-sm px-4 py-2",
+      "loss": "bg-red-600 hover:bg-red-700 text-white rounded-sm px-4 py-2"
+    },
+    "inputs": {
+      "style": "bg-[#141414] border border-white/10 text-white px-3 py-2 rounded-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono text-sm",
+      "labels": "text-xs uppercase tracking-wider text-gray-400 mb-1 block"
+    },
+    "tables": {
+      "style": "Dense tabular data. Text sizes text-xs to text-sm. Numbers MUST use JetBrains Mono. Right-align numerical data. Left-align text. Hover states on rows (hover:bg-white/5).",
+      "headers": "text-xs uppercase tracking-wider text-gray-500 border-b border-white/10 pb-2 font-sans font-medium"
+    },
+    "cards": {
+      "metric_card": "flex flex-col gap-1 border border-white/10 bg-[#0A0A0A] p-5. Label text-gray-400 text-xs uppercase. Value text-3xl font-mono text-white. Optional sparkline or % change indicator (green/red font-mono)."
+    },
+    "tags": {
+      "style": "px-2 py-0.5 rounded-sm text-xs font-mono border",
+      "theme_sector": "border-blue-500/30 bg-blue-500/10 text-blue-400",
+      "setup_type": "border-purple-500/30 bg-purple-500/10 text-purple-400",
+      "win": "border-green-500/30 bg-green-500/10 text-green-400",
+      "loss": "border-red-500/30 bg-red-500/10 text-red-400"
+    }
+  },
+  "motion_and_interactions": {
+    "philosophy": "Instantaneous. No long fades or bounces. Traders need speed.",
+    "transitions": "Very fast, duration-100 or duration-150 ease-out.",
+    "data_updates": "Subtle background flash (green/red) when a ticker's data updates or a trade is logged, quickly fading back to transparent."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use sparingly. 16px or 14px size. Mostly for directional indicators (TrendingUp, TrendingDown), menu items, and actions (Plus, Trash2, Edit)."
+  },
+  "charts_and_data_viz": {
+    "library": "recharts",
+    "equity_curve": "Area chart with a gradient fill under the line (blue-500/20 to transparent). Sharp, straight lines (type='linear' or 'step'), not curves (type='monotone'), to reflect accurate discrete P&L jumps.",
+    "heatmap": "Monthly performance grid. Cells colored based on net P&L. Dark red (heavy loss) -> Black/Dark Grey (flat) -> Bright Green (heavy profit).",
+    "bar_chart": "For sector/strategy breakdown. Thin bars, no rounded corners, stark high-contrast colors."
+  },
+  "accessibility": {
+    "contrast": "Ensure pure white text on deep obsidian meets maximum contrast. For muted text, use #A0A0A0 minimum for AA compliance.",
+    "focus_states": "All inputs and buttons must have high-contrast focus rings (focus:ring-2 focus:ring-blue-500 focus:outline-none) for keyboard navigation."
+  },
+  "media_and_assets": {
+    "images": {},
+    "notes": "No placeholder images needed. UI is completely data-driven. The user is a solo trader; functionality and screen real estate are paramount."
+  },
+  "instructions_to_main_agent": [
+    "Prioritize data density. The user is a trader who needs to see as much information as possible without scrolling.",
+    "Ensure all numerical fields (Price, RS, ADR%, P&L, Position Size) strictly use JetBrains Mono or a monospace font configuration to ensure vertical alignment of digits.",
+    "For the Position Sizer, ensure the inputs (Account Size, Risk %, Entry Price, Stop Loss) auto-calculate the Position Size (Shares) and Total Risk ($) in real-time.",
+    "Color-code P&L and performance metrics: Positive values must be explicitly Green (#00C805), negative values explicitly Red (#FF3B30).",
+    "Use standard HTML/Tailwind for the complex, dense layouts rather than wrapping everything in heavy Shadcn Card components if it restricts layout freedom. Use Shadcn for inputs, dialogs, dropdowns, and select components.",
+    "Ensure the layout is responsive, but optimize primarily for desktop/laptop displays, as trading dashboards are rarely used optimally on mobile.",
+    "Include 'data-testid' on all interactive elements (e.g., add-ticker-btn, calculate-size-btn, log-trade-btn, trade-row, watchlist-row) to ensure testability."
+  ]
+}
