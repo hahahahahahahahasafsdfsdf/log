@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Trash2, Edit, Search, Check, X, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, ClipboardCheck, Layers } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Edit, Search, Check, X, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Layers, BookOpen } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ChecklistPanel, { ChecklistScore } from "@/components/ChecklistPanel";
 
 function PnlCell({ value, suffix = "" }) {
@@ -28,9 +29,11 @@ const SORT_COLUMNS = [
 export default function Watchlist() {
   const [items, setItems] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [showTrade, setShowTrade] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
@@ -43,15 +46,34 @@ export default function Watchlist() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState("asc");
+  const [tradeForm, setTradeForm] = useState({
+    side: "LONG", entry_price: "", shares: "", stop_loss: "",
+    entry_date: new Date().toISOString().split("T")[0],
+    strategy_tag: "", setup_type: "", notes: ""
+  });
+
+  const STRATEGY_TAGS = ["Breakout", "Pullback", "Gap-Up", "Momentum", "Mean Reversion", "Earnings", "Other"];
+  const SETUP_TYPES = ["Flag", "Base Break", "EP", "Kicker", "Power Earnings Gap", "Inside Day", "VCP", "Custom"];
 
   const load = useCallback(() => {
-    Promise.all([api.getWatchlist(), api.getChecklistTemplates()])
-      .then(([w, t]) => { setItems(w); setTemplates(t); })
+    Promise.all([api.getWatchlist(), api.getChecklistTemplates(), api.getTrades()])
+      .then(([w, t, tr]) => { setItems(w); setTemplates(t); setTrades(tr); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Map ticker -> trade status
+  const tradeStatusMap = useMemo(() => {
+    const map = {};
+    for (const t of trades) {
+      if (!map[t.ticker] || t.status === "OPEN") {
+        map[t.ticker] = t.status;
+      }
+    }
+    return map;
+  }, [trades]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -140,6 +162,41 @@ export default function Watchlist() {
     setChecklistItem(updatedItem);
   };
 
+  const openTradeDialog = (item) => {
+    setShowTrade(item);
+    setTradeForm({
+      side: "LONG",
+      entry_price: item.last_price ? String(item.last_price) : "",
+      shares: "", stop_loss: "",
+      entry_date: new Date().toISOString().split("T")[0],
+      strategy_tag: "", setup_type: "", notes: ""
+    });
+  };
+
+  const handleLogTrade = async () => {
+    if (!showTrade || !tradeForm.entry_price || !tradeForm.shares || !tradeForm.stop_loss) {
+      toast.error("Fill in required fields"); return;
+    }
+    try {
+      await api.createTrade({
+        ticker: showTrade.ticker,
+        side: tradeForm.side,
+        entry_price: parseFloat(tradeForm.entry_price),
+        shares: parseFloat(tradeForm.shares),
+        stop_loss: parseFloat(tradeForm.stop_loss),
+        entry_date: tradeForm.entry_date,
+        strategy_tag: tradeForm.strategy_tag,
+        setup_type: tradeForm.setup_type,
+        notes: tradeForm.notes
+      });
+      toast.success(`Trade logged for ${showTrade.ticker}`);
+      setShowTrade(null);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed to log trade");
+    }
+  };
+
   // Sort items
   const sortedItems = useMemo(() => {
     if (!sortCol) return items;
@@ -199,13 +256,11 @@ export default function Watchlist() {
         <th className="num cursor-pointer select-none" onClick={() => handleSort("ext_50ema")}>
           <span className="flex items-center justify-end">E50 <SortIcon colKey="ext_50ema" /></span>
         </th>
-        <th className="num">D-1</th>
-        <th className="num">D-2</th>
-        <th className="num">D-3</th>
         <th className="num cursor-pointer select-none" onClick={() => handleSort("combined_3d_pct")}>
           <span className="flex items-center justify-end">3D <SortIcon colKey="combined_3d_pct" /></span>
         </th>
         <th className="num">&gt;ADR?</th>
+        <th>Status</th>
         <th></th>
       </tr>
     </thead>
@@ -250,9 +305,6 @@ export default function Watchlist() {
       <td className="num"><PnlCell value={item.ext_10ema} /></td>
       <td className="num"><PnlCell value={item.ext_20ema} /></td>
       <td className="num"><PnlCell value={item.ext_50ema} /></td>
-      <td className="num"><PnlCell value={item.day1_pct} suffix="%" /></td>
-      <td className="num"><PnlCell value={item.day2_pct} suffix="%" /></td>
-      <td className="num"><PnlCell value={item.day3_pct} suffix="%" /></td>
       <td className="num"><PnlCell value={item.combined_3d_pct} suffix="%" /></td>
       <td className="num">
         {item.last_updated ? (
@@ -261,8 +313,25 @@ export default function Watchlist() {
           </span>
         ) : "—"}
       </td>
+      <td className="text-col">
+        {tradeStatusMap[item.ticker] === "OPEN" ? (
+          <span className="tag tag-theme">OPEN</span>
+        ) : tradeStatusMap[item.ticker] === "CLOSED" ? (
+          <span className="tag tag-win">TRADED</span>
+        ) : (
+          <span className="text-gray-600 text-xs">—</span>
+        )}
+      </td>
       <td>
         <div className="flex items-center gap-1">
+          <button
+            data-testid={`log-trade-${item.ticker}-btn`}
+            onClick={() => openTradeDialog(item)}
+            className="p-1 text-gray-500 hover:text-blue-400 transition-colors"
+            title="Log trade"
+          >
+            <BookOpen size={13} />
+          </button>
           <button data-testid={`edit-${item.ticker}-btn`} onClick={() => startEdit(item)} className="p-1 text-gray-500 hover:text-white transition-colors">
             <Edit size={13} />
           </button>
@@ -334,7 +403,7 @@ export default function Watchlist() {
                   <React.Fragment key={theme}>
                     <tr className="group-header">
                       <td
-                        colSpan={16}
+                        colSpan={14}
                         className="!px-3 !py-2 bg-[#111] cursor-pointer select-none"
                         onClick={() => toggleGroup(theme)}
                         data-testid={`theme-group-${theme}`}
@@ -446,6 +515,77 @@ export default function Watchlist() {
               Add {searchResult?.ticker || "Ticker"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Log Trade from Watchlist Dialog */}
+      <Dialog open={!!showTrade} onOpenChange={() => setShowTrade(null)}>
+        <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-white">Log Trade — {showTrade?.ticker}</DialogTitle>
+            <DialogDescription className="text-gray-400 text-sm">
+              {showTrade?.last_price ? `Last: $${showTrade.last_price} | ADR%: ${showTrade.adr_pct?.toFixed(2)} | RS: ${showTrade.rs_spy}` : "Enter trade details"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 mt-2">
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Side</label>
+              <Select value={tradeForm.side} onValueChange={v => setTradeForm({...tradeForm, side: v})}>
+                <SelectTrigger data-testid="wl-trade-side-select" className="bg-[#141414] border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="LONG">LONG</SelectItem>
+                  <SelectItem value="SHORT">SHORT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Entry Price *</label>
+              <Input data-testid="wl-trade-entry-input" type="number" step="0.01" value={tradeForm.entry_price} onChange={e => setTradeForm({...tradeForm, entry_price: e.target.value})} className="bg-[#141414] border-white/10 text-white font-mono" />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Shares *</label>
+              <Input data-testid="wl-trade-shares-input" type="number" value={tradeForm.shares} onChange={e => setTradeForm({...tradeForm, shares: e.target.value})} placeholder="100" className="bg-[#141414] border-white/10 text-white font-mono" />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Stop Loss *</label>
+              <Input data-testid="wl-trade-stop-input" type="number" step="0.01" value={tradeForm.stop_loss} onChange={e => setTradeForm({...tradeForm, stop_loss: e.target.value})} className="bg-[#141414] border-white/10 text-white font-mono" />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Entry Date</label>
+              <Input data-testid="wl-trade-date-input" type="date" value={tradeForm.entry_date} onChange={e => setTradeForm({...tradeForm, entry_date: e.target.value})} className="bg-[#141414] border-white/10 text-white font-mono" />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Strategy</label>
+              <Select value={tradeForm.strategy_tag} onValueChange={v => setTradeForm({...tradeForm, strategy_tag: v})}>
+                <SelectTrigger data-testid="wl-trade-strategy-select" className="bg-[#141414] border-white/10 text-white">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  {STRATEGY_TAGS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Setup Type</label>
+              <Select value={tradeForm.setup_type} onValueChange={v => setTradeForm({...tradeForm, setup_type: v})}>
+                <SelectTrigger data-testid="wl-trade-setup-select" className="bg-[#141414] border-white/10 text-white">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  {SETUP_TYPES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-gray-400 mb-1 block font-body">Notes</label>
+              <Input data-testid="wl-trade-notes-input" value={tradeForm.notes} onChange={e => setTradeForm({...tradeForm, notes: e.target.value})} placeholder="Trade notes..." className="bg-[#141414] border-white/10 text-white" />
+            </div>
+          </div>
+          <Button data-testid="wl-log-trade-btn" onClick={handleLogTrade} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-sm mt-2">
+            Log Trade for {showTrade?.ticker}
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
