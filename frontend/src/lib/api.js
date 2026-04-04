@@ -17,6 +17,12 @@ export const api = {
   refreshTicker: (id) => API.post(`/watchlist/refresh/${id}`).then(r => r.data),
   searchTicker: (q) => API.get(`/watchlist/search?q=${q}`).then(r => r.data),
 
+  // Checklist Templates
+  getChecklistTemplates: () => API.get('/checklist-templates').then(r => r.data),
+  addChecklistTemplate: (data) => API.post('/checklist-templates', data).then(r => r.data),
+  deleteChecklistTemplate: (id) => API.delete(`/checklist-templates/${id}`).then(r => r.data),
+  updateManualChecks: (id, manual_checks) => API.put(`/watchlist/${id}/checklist`, { manual_checks }).then(r => r.data),
+
   // Trades
   getTrades: (status) => API.get('/trades', { params: status ? { status } : {} }).then(r => r.data),
   createTrade: (data) => API.post('/trades', data).then(r => r.data),

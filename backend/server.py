@@ -123,6 +123,11 @@ def _fetch_ticker_data(tickers_list):
             # Check if all 3 days were up
             all_3_up = d1 > 0 and d2 > 0 and d3 > 0
 
+            # Previous day range and volume for checklist
+            prev_range_pct = (float(hist['High'].iloc[-2]) - float(hist['Low'].iloc[-2])) / float(hist['Close'].iloc[-2]) * 100 if len(hist) > 1 else 0
+            prev_vol = int(hist['Volume'].iloc[-1]) if 'Volume' in hist.columns else 0
+            avg_vol_10 = int(hist['Volume'].tail(10).mean()) if 'Volume' in hist.columns else 0
+
             results[sym] = {
                 "last_price": round(last_price, 2),
                 "change_pct": round(change_pct, 2),
@@ -137,6 +142,12 @@ def _fetch_ticker_data(tickers_list):
                 "combined_3d_pct": round(combined_3d, 2),
                 "combined_gt_adr": abs(combined_3d) > adr_pct,
                 "all_3_up": all_3_up,
+                "prev_day_range_pct": round(prev_range_pct, 2),
+                "prev_day_volume": prev_vol,
+                "avg_volume_10d": avg_vol_10,
+                "above_10ema": last_price > ema10,
+                "above_20ema": last_price > ema20,
+                "above_50ema": last_price > ema50,
                 "last_updated": datetime.now(timezone.utc).isoformat()
             }
         except Exception as e:
@@ -222,6 +233,13 @@ async def add_watchlist_item(data: WatchlistItemCreate):
         "combined_3d_pct": 0,
         "combined_gt_adr": False,
         "all_3_up": False,
+        "prev_day_range_pct": 0,
+        "prev_day_volume": 0,
+        "avg_volume_10d": 0,
+        "above_10ema": False,
+        "above_20ema": False,
+        "above_50ema": False,
+        "manual_checks": {},
         "last_updated": None,
         "added_date": datetime.now(timezone.utc).isoformat()
     }
@@ -280,6 +298,62 @@ async def search_ticker(q: str = Query(..., min_length=1)):
     if not result:
         raise HTTPException(404, f"Ticker '{q}' not found")
     return result
+
+
+# ─── Checklist Templates ───
+
+DEFAULT_CHECKLIST_TEMPLATES = [
+    {"id": "rs_positive", "name": "RS > 0 vs SPY", "type": "auto", "auto_field": "rs_spy", "condition": "gt", "threshold": 0, "order": 1, "description": "Relative strength vs SPY is positive"},
+    {"id": "range_lt_adr", "name": "Prev Day Range < ADR%", "type": "auto", "auto_field": "prev_day_range_pct", "condition": "lt_field", "compare_field": "adr_pct", "order": 2, "description": "Previous day range is less than 20-day ADR%"},
+    {"id": "vol_lt_avg", "name": "Volume < 10-Day Avg", "type": "auto", "auto_field": "prev_day_volume", "condition": "lt_field", "compare_field": "avg_volume_10d", "order": 3, "description": "Previous day volume below 10-day average"},
+    {"id": "above_20ema", "name": "Price Above 20 EMA", "type": "auto", "auto_field": "above_20ema", "condition": "is_true", "order": 4, "description": "Price trading above 20-period EMA"},
+    {"id": "stage_base", "name": "Stage & Base Analysis", "type": "manual", "order": 5, "description": "Stock in proper stage with clean base structure"},
+    {"id": "clean_pattern", "name": "Clean Chart Pattern", "type": "manual", "order": 6, "description": "Chart pattern is clean and actionable"},
+]
+
+
+class ChecklistTemplateCreate(BaseModel):
+    name: str
+    description: str = ""
+    order: int = 99
+
+
+@api_router.get("/checklist-templates")
+async def get_checklist_templates():
+    templates = await db.checklist_templates.find({}, {"_id": 0}).to_list(100)
+    return sorted(templates, key=lambda x: x.get("order", 99))
+
+
+@api_router.post("/checklist-templates")
+async def add_checklist_template(data: ChecklistTemplateCreate):
+    template = {
+        "id": str(uuid.uuid4()),
+        "name": data.name,
+        "type": "manual",
+        "order": data.order,
+        "description": data.description,
+    }
+    await db.checklist_templates.insert_one(template)
+    template.pop("_id", None)
+    return template
+
+
+@api_router.delete("/checklist-templates/{template_id}")
+async def delete_checklist_template(template_id: str):
+    result = await db.checklist_templates.delete_one({"id": template_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Template not found")
+    return {"status": "deleted"}
+
+
+@api_router.put("/watchlist/{item_id}/checklist")
+async def update_watchlist_checklist(item_id: str, data: dict):
+    item = await db.watchlist.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(404, "Item not found")
+    manual_checks = data.get("manual_checks", {})
+    await db.watchlist.update_one({"id": item_id}, {"$set": {"manual_checks": manual_checks}})
+    return await db.watchlist.find_one({"id": item_id}, {"_id": 0})
 
 
 # ─── Trades ───
@@ -502,6 +576,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def seed_checklist_templates():
+    count = await db.checklist_templates.count_documents({})
+    if count == 0:
+        for t in DEFAULT_CHECKLIST_TEMPLATES:
+            await db.checklist_templates.insert_one({**t})
+        logger.info("Seeded default checklist templates")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

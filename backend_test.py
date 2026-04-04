@@ -182,6 +182,95 @@ class TradingSystemAPITester:
         
         return True
 
+    def test_checklist_templates(self):
+        """Test checklist template endpoints"""
+        print("\n=== TESTING CHECKLIST TEMPLATES ===")
+        
+        # Get default templates
+        success, templates = self.run_test("Get Checklist Templates", "GET", "checklist-templates", 200)
+        if not success:
+            return False
+            
+        # Should have 6 default templates (4 auto + 2 manual)
+        if len(templates) != 6:
+            print(f"   ❌ Expected 6 default templates, got {len(templates)}")
+            return False
+        print(f"   ✅ Found {len(templates)} default templates")
+        
+        # Verify template structure
+        auto_count = sum(1 for t in templates if t.get("type") == "auto")
+        manual_count = sum(1 for t in templates if t.get("type") == "manual")
+        if auto_count != 4 or manual_count != 2:
+            print(f"   ❌ Expected 4 auto + 2 manual, got {auto_count} auto + {manual_count} manual")
+            return False
+        print(f"   ✅ Template types verified: {auto_count} auto, {manual_count} manual")
+        
+        # Add custom template
+        custom_template = {
+            "name": "Test Custom Item",
+            "description": "Test description",
+            "order": 99
+        }
+        success, added_template = self.run_test("Add Custom Template", "POST", "checklist-templates", 200, custom_template)
+        if not success or not added_template.get("id"):
+            print("   ❌ Add custom template failed")
+            return False
+            
+        template_id = added_template["id"]
+        self.created_items.append(("template", template_id))
+        print(f"   ✅ Added custom template with ID: {template_id}")
+        
+        # Verify template was added
+        success, updated_templates = self.run_test("Get Updated Templates", "GET", "checklist-templates", 200)
+        if not success or len(updated_templates) != 7:
+            print(f"   ❌ Expected 7 templates after adding custom, got {len(updated_templates)}")
+            return False
+        print("   ✅ Custom template addition verified")
+        
+        return True
+
+    def test_watchlist_checklist(self):
+        """Test watchlist checklist functionality"""
+        print("\n=== TESTING WATCHLIST CHECKLIST ===")
+        
+        # First ensure we have a watchlist item
+        success, items = self.run_test("Get Watchlist for Checklist", "GET", "watchlist", 200)
+        if not success:
+            return False
+            
+        # If no items, add one
+        if not items:
+            watchlist_data = {
+                "ticker": "TSLA",
+                "theme": "Electric Vehicle",
+                "notes": "Test for checklist"
+            }
+            success, added_item = self.run_test("Add Item for Checklist Test", "POST", "watchlist", 200, watchlist_data)
+            if not success:
+                return False
+            item_id = added_item["id"]
+            self.created_items.append(("watchlist", item_id))
+        else:
+            item_id = items[0]["id"]
+            
+        # Update manual checklist items
+        manual_checks = {
+            "stage_base": True,
+            "clean_pattern": False
+        }
+        checklist_data = {"manual_checks": manual_checks}
+        success, updated_item = self.run_test("Update Manual Checklist", "PUT", f"watchlist/{item_id}/checklist", 200, checklist_data)
+        if not success:
+            return False
+            
+        # Verify manual checks were saved
+        if updated_item.get("manual_checks", {}).get("stage_base") != True:
+            print("   ❌ Manual checklist update failed")
+            return False
+        print("   ✅ Manual checklist update verified")
+        
+        return True
+
     def test_analytics(self):
         """Test analytics endpoint"""
         print("\n=== TESTING ANALYTICS ===")
@@ -217,6 +306,8 @@ class TradingSystemAPITester:
                 self.run_test(f"Delete Watchlist {item_id}", "DELETE", f"watchlist/{item_id}", 200)
             elif item_type == "trade":
                 self.run_test(f"Delete Trade {item_id}", "DELETE", f"trades/{item_id}", 200)
+            elif item_type == "template":
+                self.run_test(f"Delete Template {item_id}", "DELETE", f"checklist-templates/{item_id}", 200)
 
 def main():
     print("🚀 Starting Trading System API Tests")
@@ -230,8 +321,16 @@ def main():
             print("❌ Settings tests failed")
             return 1
             
+        if not tester.test_checklist_templates():
+            print("❌ Checklist template tests failed")
+            return 1
+            
         if not tester.test_watchlist():
             print("❌ Watchlist tests failed")
+            return 1
+            
+        if not tester.test_watchlist_checklist():
+            print("❌ Watchlist checklist tests failed")
             return 1
             
         if not tester.test_trades():
