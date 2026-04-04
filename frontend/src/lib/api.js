@@ -29,6 +29,8 @@ export const api = {
   updateTrade: (id, data) => API.put(`/trades/${id}`, data).then(r => r.data),
   deleteTrade: (id) => API.delete(`/trades/${id}`).then(r => r.data),
   closeTrade: (id, data) => API.post(`/trades/${id}/close`, data).then(r => r.data),
+  addTranche: (id, data) => API.post(`/trades/${id}/add-tranche`, data).then(r => r.data),
+  partialExit: (id, data) => API.post(`/trades/${id}/partial-exit`, data).then(r => r.data),
 
   // Analytics
   getAnalytics: () => API.get('/analytics').then(r => r.data),

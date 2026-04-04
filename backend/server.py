@@ -61,6 +61,16 @@ class TradeClose(BaseModel):
     exit_price: float
     exit_date: str
 
+class TrancheAdd(BaseModel):
+    price: float
+    shares: float
+    date: str
+
+class PartialExitAdd(BaseModel):
+    price: float
+    shares: float
+    date: str
+
 class SettingsUpdate(BaseModel):
     account_size: Optional[float] = None
     default_risk_pct: Optional[float] = None
@@ -374,6 +384,11 @@ async def create_trade(data: TradeCreate):
     risk_per_share = abs(data.entry_price - data.stop_loss)
     risk_amount = risk_per_share * data.shares
 
+    settings = await get_settings()
+    account_size = settings.get("account_size", 100000)
+    position_value = data.entry_price * data.shares
+    position_pct = (position_value / account_size) * 100 if account_size > 0 else 0
+
     trade = {
         "id": str(uuid.uuid4()),
         "ticker": data.ticker.upper().strip(),
@@ -392,6 +407,12 @@ async def create_trade(data: TradeCreate):
         "pnl_pct": 0,
         "risk_amount": round(risk_amount, 2),
         "r_multiple": 0,
+        "tranches": [{"price": data.entry_price, "shares": data.shares, "date": data.entry_date}],
+        "partial_exits": [],
+        "remaining_shares": data.shares,
+        "total_shares_entered": data.shares,
+        "realized_pnl": 0,
+        "position_pct": round(position_pct, 2),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.trades.insert_one(trade)
@@ -436,28 +457,136 @@ async def close_trade(trade_id: str, data: TradeClose):
         raise HTTPException(400, "Trade already closed")
 
     ep = trade["entry_price"]
-    shares = trade["shares"]
     side = trade["side"]
+    remaining = trade.get("remaining_shares", trade["shares"])
 
+    # Add final partial exit for remaining shares
+    partial_exits = trade.get("partial_exits", [])
+    partial_exits.append({"price": data.exit_price, "shares": remaining, "date": data.exit_date})
+
+    # Calculate total P&L from all partial exits
+    total_pnl = trade.get("realized_pnl", 0)
     if side == "LONG":
-        pnl = (data.exit_price - ep) * shares
+        total_pnl += (data.exit_price - ep) * remaining
     else:
-        pnl = (ep - data.exit_price) * shares
+        total_pnl += (ep - data.exit_price) * remaining
 
-    pnl_pct = (pnl / (ep * shares)) * 100 if (ep * shares) > 0 else 0
+    total_shares = trade.get("total_shares_entered", trade["shares"])
+    total_cost = ep * total_shares
+    pnl_pct = (total_pnl / total_cost) * 100 if total_cost > 0 else 0
     risk_amount = trade["risk_amount"]
-    r_multiple = pnl / risk_amount if risk_amount > 0 else 0
+    r_multiple = total_pnl / risk_amount if risk_amount > 0 else 0
 
     update = {
         "exit_price": data.exit_price,
         "exit_date": data.exit_date,
         "status": "CLOSED",
-        "pnl": round(pnl, 2),
+        "pnl": round(total_pnl, 2),
         "pnl_pct": round(pnl_pct, 2),
-        "r_multiple": round(r_multiple, 2)
+        "r_multiple": round(r_multiple, 2),
+        "partial_exits": partial_exits,
+        "remaining_shares": 0,
+        "realized_pnl": round(total_pnl, 2),
+        "position_pct": 0
     }
     await db.trades.update_one({"id": trade_id}, {"$set": update})
     return await db.trades.find_one({"id": trade_id}, {"_id": 0})
+
+
+async def _recalc_trade(trade_id):
+    """Recalculate derived fields after tranche/exit changes."""
+    trade = await db.trades.find_one({"id": trade_id}, {"_id": 0})
+    tranches = trade.get("tranches", [])
+    partial_exits = trade.get("partial_exits", [])
+
+    total_entered = sum(t["shares"] for t in tranches)
+    total_exited = sum(e["shares"] for e in partial_exits)
+    remaining = total_entered - total_exited
+
+    # Weighted avg entry
+    if total_entered > 0:
+        avg_entry = sum(t["price"] * t["shares"] for t in tranches) / total_entered
+    else:
+        avg_entry = trade["entry_price"]
+
+    stop = trade["stop_loss"]
+    risk_per_share = abs(avg_entry - stop)
+    risk_amount = risk_per_share * total_entered
+
+    # Realized P&L from partial exits
+    realized = 0
+    side = trade["side"]
+    for e in partial_exits:
+        if side == "LONG":
+            realized += (e["price"] - avg_entry) * e["shares"]
+        else:
+            realized += (avg_entry - e["price"]) * e["shares"]
+
+    settings = await get_settings()
+    account_size = settings.get("account_size", 100000)
+    position_value = avg_entry * remaining
+    position_pct = (position_value / account_size) * 100 if account_size > 0 else 0
+
+    update_fields = {
+        "entry_price": round(avg_entry, 4),
+        "shares": total_entered,
+        "remaining_shares": remaining,
+        "total_shares_entered": total_entered,
+        "risk_amount": round(risk_amount, 2),
+        "realized_pnl": round(realized, 2),
+        "position_pct": round(position_pct, 2),
+    }
+
+    if remaining <= 0:
+        r_multiple = realized / risk_amount if risk_amount > 0 else 0
+        total_cost = avg_entry * total_entered
+        pnl_pct = (realized / total_cost) * 100 if total_cost > 0 else 0
+        last_exit = partial_exits[-1] if partial_exits else {}
+        update_fields.update({
+            "status": "CLOSED",
+            "pnl": round(realized, 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "r_multiple": round(r_multiple, 2),
+            "exit_price": last_exit.get("price"),
+            "exit_date": last_exit.get("date"),
+            "remaining_shares": 0,
+            "position_pct": 0
+        })
+
+    await db.trades.update_one({"id": trade_id}, {"$set": update_fields})
+    return await db.trades.find_one({"id": trade_id}, {"_id": 0})
+
+
+@api_router.post("/trades/{trade_id}/add-tranche")
+async def add_tranche(trade_id: str, data: TrancheAdd):
+    trade = await db.trades.find_one({"id": trade_id}, {"_id": 0})
+    if not trade:
+        raise HTTPException(404, "Trade not found")
+    if trade["status"] == "CLOSED":
+        raise HTTPException(400, "Cannot add to closed trade")
+
+    tranches = trade.get("tranches", [])
+    tranches.append({"price": data.price, "shares": data.shares, "date": data.date})
+    await db.trades.update_one({"id": trade_id}, {"$set": {"tranches": tranches}})
+    return await _recalc_trade(trade_id)
+
+
+@api_router.post("/trades/{trade_id}/partial-exit")
+async def partial_exit(trade_id: str, data: PartialExitAdd):
+    trade = await db.trades.find_one({"id": trade_id}, {"_id": 0})
+    if not trade:
+        raise HTTPException(404, "Trade not found")
+    if trade["status"] == "CLOSED":
+        raise HTTPException(400, "Cannot exit closed trade")
+
+    remaining = trade.get("remaining_shares", trade["shares"])
+    if data.shares > remaining:
+        raise HTTPException(400, f"Cannot exit {data.shares} shares, only {remaining} remaining")
+
+    partial_exits = trade.get("partial_exits", [])
+    partial_exits.append({"price": data.price, "shares": data.shares, "date": data.date})
+    await db.trades.update_one({"id": trade_id}, {"$set": {"partial_exits": partial_exits}})
+    return await _recalc_trade(trade_id)
 
 
 # ─── Analytics ───
