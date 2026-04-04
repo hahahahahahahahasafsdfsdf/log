@@ -1,34 +1,191 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Trading Dashboard Styles */
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  color: #A0A0A0;
+  font-size: 0.875rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+  transition: color 100ms ease-out, background-color 100ms ease-out;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  text-decoration: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.sidebar-nav-item:hover {
+  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.sidebar-nav-item.active {
+  color: #FFFFFF;
+  border-left-color: #007AFF;
+  background-color: rgba(0, 122, 255, 0.08);
 }
 
-.App-link {
-    color: #61dafb;
+/* Metric cards */
+.metric-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0A0A0A;
+  padding: 1.25rem;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+.metric-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #666;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+}
+
+/* Data table styles */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #666;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table th.num {
+  text-align: right;
+}
+
+.data-table td {
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.data-table td.text-col {
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.data-table td.num {
+  text-align: right;
+}
+
+.data-table tr {
+  transition: background-color 100ms ease-out;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Tag styles */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid;
+  border-radius: 2px;
+}
+
+.tag-theme {
+  border-color: rgba(0, 122, 255, 0.3);
+  background: rgba(0, 122, 255, 0.1);
+  color: #5BA3FF;
+}
+
+.tag-strategy {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.1);
+  color: #C084FC;
+}
+
+.tag-setup {
+  border-color: rgba(234, 179, 8, 0.3);
+  background: rgba(234, 179, 8, 0.1);
+  color: #FCD34D;
+}
+
+.tag-win {
+  border-color: rgba(0, 200, 5, 0.3);
+  background: rgba(0, 200, 5, 0.1);
+  color: #00C805;
+}
+
+.tag-loss {
+  border-color: rgba(255, 59, 48, 0.3);
+  background: rgba(255, 59, 48, 0.1);
+  color: #FF3B30;
+}
+
+/* Input overrides for dark theme */
+.trading-input {
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  padding: 0.5rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 100ms ease-out;
+}
+
+.trading-input:focus {
+  border-color: #007AFF;
+  box-shadow: 0 0 0 1px #007AFF;
+}
+
+.trading-input::placeholder {
+  color: #444;
+}
+
+/* Heatmap cell */
+.heatmap-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 4rem;
+}
+
+/* Pulse animation for data updates */
+@keyframes data-flash-green {
+  0% { background-color: rgba(0, 200, 5, 0.15); }
+  100% { background-color: transparent; }
+}
+
+@keyframes data-flash-red {
+  0% { background-color: rgba(255, 59, 48, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.flash-green {
+  animation: data-flash-green 0.8s ease-out;
+}
+
+.flash-red {
+  animation: data-flash-red 0.8s ease-out;
 }
