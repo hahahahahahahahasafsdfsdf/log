@@ -306,9 +306,11 @@ DEFAULT_CHECKLIST_TEMPLATES = [
     {"id": "rs_positive", "name": "RS > 0 vs SPY", "type": "auto", "auto_field": "rs_spy", "condition": "gt", "threshold": 0, "order": 1, "description": "Relative strength vs SPY is positive"},
     {"id": "range_lt_adr", "name": "Prev Day Range < ADR%", "type": "auto", "auto_field": "prev_day_range_pct", "condition": "lt_field", "compare_field": "adr_pct", "order": 2, "description": "Previous day range is less than 20-day ADR%"},
     {"id": "vol_lt_avg", "name": "Volume < 10-Day Avg", "type": "auto", "auto_field": "prev_day_volume", "condition": "lt_field", "compare_field": "avg_volume_10d", "order": 3, "description": "Previous day volume below 10-day average"},
-    {"id": "above_20ema", "name": "Price Above 20 EMA", "type": "auto", "auto_field": "above_20ema", "condition": "is_true", "order": 4, "description": "Price trading above 20-period EMA"},
-    {"id": "stage_base", "name": "Stage & Base Analysis", "type": "manual", "order": 5, "description": "Stock in proper stage with clean base structure"},
-    {"id": "clean_pattern", "name": "Clean Chart Pattern", "type": "manual", "order": 6, "description": "Chart pattern is clean and actionable"},
+    {"id": "above_10ema", "name": "Price Above 10 EMA", "type": "auto", "auto_field": "above_10ema", "condition": "is_true", "order": 4, "description": "Price trading above 10-period EMA"},
+    {"id": "above_20ema", "name": "Price Above 20 EMA", "type": "auto", "auto_field": "above_20ema", "condition": "is_true", "order": 5, "description": "Price trading above 20-period EMA"},
+    {"id": "above_50ema", "name": "Price Above 50 EMA", "type": "auto", "auto_field": "above_50ema", "condition": "is_true", "order": 6, "description": "Price trading above 50-period EMA"},
+    {"id": "stage_base", "name": "Stage & Base Analysis", "type": "manual", "order": 7, "description": "Stock in proper stage with clean base structure"},
+    {"id": "clean_pattern", "name": "Clean Chart Pattern", "type": "manual", "order": 8, "description": "Chart pattern is clean and actionable"},
 ]
 
 
